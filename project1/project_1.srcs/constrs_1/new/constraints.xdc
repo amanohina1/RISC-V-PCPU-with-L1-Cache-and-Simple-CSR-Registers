@@ -1,0 +1,1 @@
+create_clock -period 10.0 -name virtual_clk [get_ports clk]
