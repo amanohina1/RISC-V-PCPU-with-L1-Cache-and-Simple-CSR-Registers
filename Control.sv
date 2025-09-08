@@ -37,8 +37,7 @@ module Control #(
         input  [6:0] funct7,
         input  [2:0] funct3,
         input  [6:0] opcode,
-        input  logic [11:0] csr_addr,
-
+        input  logic [11:0] csr_addr, 
         input  [DATA_WIDTH - 1:0] mstatus,
         input  exception,
         input  mret_out,
@@ -163,12 +162,7 @@ module Control #(
                 WBSelect = 2'b11;
                 ImmeSelect = 3'b010; 
                 Op = 4'b0000; //add
-                case (funct3) 
-                    3'b000: S_type = 2'b00;
-                    3'b001: S_type = 2'b01;
-                    3'b010: S_type = 2'b10;
-                    default: S_type = 2'b11;
-                endcase
+                S_type = funct3;
                 need_rs2 = 1'b1;
                 is_lstype = 2'b10;
             end

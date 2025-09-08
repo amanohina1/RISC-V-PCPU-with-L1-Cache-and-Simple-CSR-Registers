@@ -118,7 +118,7 @@ generate
     end
 endgenerate
 
-  logic replace_line;
+  logic replace_line,valid_access;
   cache_line_t victim_line;
   
   always_comb begin
@@ -128,11 +128,13 @@ endgenerate
     replace_line = lru_bits[req_reg.index];
     victim_line = replace_line ? cache_ways[1][req_reg.index] : cache_ways[0][req_reg.index];
   
+    valid_access = 1'b1;
     cpu_req_ready = 1'b0;
     cpu_resp.valid = 1'b0;
     cpu_resp.hit   = 1'b0;
     cpu_resp.rdata = '0;
-    
+    cpu_resp.exception = 1'b0;
+
     mem_w_req_valid = 1'b0;
     mem_w_req.addr  = 'b0;
     mem_w_req.data  = 'b0;
@@ -145,7 +147,43 @@ endgenerate
         cpu_req_ready = 1'b1;
 
         if (cpu_req.valid) begin
-            if (is_hit) begin 
+          if (cpu_req.read) begin
+            case (cpu_req.l_type)
+              3'b000,3'b100: begin
+                  valid_access = 1'b1;
+              end
+              3'b001,3'b101: begin
+                  valid_access = cpu_req.offset[0] == 1'b0; // half-word aligned
+              end
+              3'b010: begin
+                  valid_access = cpu_req.offset[0] == 1'b0 && cpu_req.offset[1] == 1'b0; // word aligned
+              end
+              default: begin
+                cpu_resp.valid = 1'b1;
+                cpu_resp.exception = 1'b1; // unaligned access
+                next_state = IDLE;
+              end
+            endcase
+          end else if(cpu_req.write) begin
+              case (cpu_req.S_type)
+                  3'b000: begin
+                      valid_access = 1'b1;
+                  end
+                  3'b001: begin
+                      valid_access = cpu_req.offset[0] == 1'b0; // half-word aligned
+                  end
+                  3'b010: begin
+                      valid_access = cpu_req.offset[0] == 1'b0 && cpu_req.offset[1] == 1'b0; // word aligned
+                  end
+                  default: begin
+                      cpu_resp.valid = 1'b1;
+                      cpu_resp.exception = 1'b1; // unaligned access
+                      next_state = IDLE;
+                  end
+              endcase
+          end
+            if (valid_access) begin
+              if (is_hit) begin
                 cpu_resp.valid = 1'b1;
                 cpu_resp.hit   = 1'b1;
                 if (cpu_req.read) begin
@@ -162,16 +200,21 @@ endgenerate
                         next_cache_ways[1][cpu_req.index].data  = write_data_block;
                         next_cache_ways[1][cpu_req.index].dirty = 1'b1;
                     end
-                end
+                  end
                 next_state = IDLE;
-            end else begin // miss
+              end else begin // miss
                 cpu_req_ready = 1'b0; // stop accepting new requests
 
                 if (victim_line.valid && victim_line.dirty) begin
-                    next_state = WB_REQ;
+                  next_state = WB_REQ;
                 end else begin
-                    next_state = ALLOC_REQ;
+                  next_state = ALLOC_REQ;
                 end
+              end
+            end else begin
+                cpu_resp.valid = 1'b1;
+                cpu_resp.exception = 1'b1; // unaligned access
+                next_state = IDLE;
             end
         end
       end
@@ -181,7 +224,7 @@ endgenerate
             mem_w_req_valid = 1'b1;
             mem_w_req.addr = {victim_line.tag, req_reg.index, {OFFSET_WIDTH{1'b0}}};
             mem_w_req.data = victim_line.data;
-            mem_w_req.wmask = 'b1;
+            mem_w_req.wmask = '1;
         end
         
         if (mem_w_req_ready) begin
@@ -239,6 +282,7 @@ endgenerate
             next_state = IDLE; 
         end
       end
+
     endcase
   end
 

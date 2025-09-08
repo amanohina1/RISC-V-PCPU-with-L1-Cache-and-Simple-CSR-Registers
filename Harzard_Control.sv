@@ -173,5 +173,4 @@ module Hazard #(
         end
     end
 
-
 endmodule

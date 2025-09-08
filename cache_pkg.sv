@@ -17,12 +17,15 @@ package cache_pkg;
         logic [DATA_WIDTH_CPU/8 - 1:0] wmask;
         logic                  write;
         logic                  read;
+        logic [2:0]                 S_type;
+        logic [2:0]                 l_type;
     } cpu_req_bus_t;
 
     typedef struct packed {
         logic                  valid;
         logic [DATA_WIDTH_CPU - 1:0] rdata;
         logic                  hit;
+        logic                  exception;
     } cpu_resp_bus_t;
 
     typedef struct packed {

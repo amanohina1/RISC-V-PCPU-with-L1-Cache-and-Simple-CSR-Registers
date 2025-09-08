@@ -72,6 +72,7 @@ module Core #(
     wire CSR_Sel;
     wire Cache_valid, Cache_hit;
     wire is_luh;
+    wire mem_aligned;
     // ----- Register / ALU / forwarding data paths -----
     wire [DATA_WIDTH - 1:0] pc_in, pc_out, PC_4;
     wire [DATA_WIDTH - 1:0] instruction_form_imem;
@@ -119,11 +120,13 @@ module Core #(
     assign pipeline_to_cache_req.wmask  = mem_write_mask;
     assign pipeline_to_cache_req.write  = ex_mem_reg.Mem_Write == 1'b1;
     assign pipeline_to_cache_req.read   = ex_mem_reg.Mem_Read == 1'b1;
+    assign pipeline_to_cache_req.S_type = ex_mem_reg.S_type;
+    assign pipeline_to_cache_req.l_type = ex_mem_reg.l_type;
 
     assign mem_read_data = cache_to_pipeline_resp.rdata;
     assign Cache_valid   = cache_to_pipeline_resp.valid;
     assign Cache_hit     = cache_to_pipeline_resp.hit;
-
+    assign mem_aligned   = ~cache_to_pipeline_resp.exception;
     assign mem_stall = !cache_ready_for_pipeline;
 
     assign dmem_bus.w_request_valid = cache_to_mem_w_valid;
@@ -264,7 +267,16 @@ module Core #(
         mem_wb_next.csr_addr = ex_mem_reg.csr_addr;
         mem_wb_next.csr_wdata = ex_mem_reg.csr_wdata;
         mem_wb_next.csr_rdata = ex_mem_reg.csr_rdata;
-        
+        if (!mem_aligned && ex_mem_reg.Mem_Read) begin
+            mem_wb_next.exception_valid = 1'b1;
+            mem_wb_next.is_ecall_inst = 1'b1;
+            mem_wb_next.exception_cause = 32'h00000004; // Example cause
+        end
+        if (!mem_aligned && ex_mem_reg.Mem_Write) begin
+            mem_wb_next.exception_valid = 1'b1;
+            mem_wb_next.is_ecall_inst = 1'b1;
+            mem_wb_next.exception_cause = 32'h00000006; // Example cause
+        end
     end
 
     // PC selection and branch/jump
