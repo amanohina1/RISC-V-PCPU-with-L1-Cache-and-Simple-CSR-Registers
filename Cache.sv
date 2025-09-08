@@ -222,7 +222,7 @@ endgenerate
       WB_REQ: begin
         if (req_reg.valid) begin
             mem_w_req_valid = 1'b1;
-            mem_w_req.addr = {victim_line.tag, req_reg.index, {OFFSET_WIDTH{1'b0}}};
+          mem_w_req.addr = {victim_line.tag[5:0], req_reg.index};
             mem_w_req.data = victim_line.data;
             mem_w_req.wmask = '1;
         end
@@ -240,7 +240,7 @@ endgenerate
 
       ALLOC_REQ: begin
         mem_r_req_valid = 1'b1;
-        mem_r_req.addr = {req_reg.tag, req_reg.index, {OFFSET_WIDTH{1'b0}}};
+        mem_r_req.addr = {req_reg.tag[5:0], req_reg.index};
         
         if (mem_r_req_ready) begin
             next_state = ALLOC_WAIT;
@@ -285,5 +285,6 @@ endgenerate
 
     endcase
   end
+
 
 endmodule
