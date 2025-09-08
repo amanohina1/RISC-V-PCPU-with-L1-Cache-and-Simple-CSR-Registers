@@ -31,11 +31,11 @@ module MEM_Dram #(
         .rst(rst),        
         .wen(dmem_ift.w_request_valid),
         .ren(dmem_ift.r_request_valid),
-        .waddr({dmem_ift.w_request_bits.waddr[ADDR_WIDTH-1:4],4'b0}),
+        .waddr({dmem_ift.w_request_bits.waddr}),
         .wdata(dmem_ift.w_request_bits.wdata),
         .wmask({(128 / 8){1'b1}}),
 
-        .raddr1({dmem_ift.r_request_bits.raddr[ADDR_WIDTH+4-1:4],4'b0}),
+        .raddr1({dmem_ift.r_request_bits.raddr}),
         .rdata1(dmem_ift.r_reply_bits.rdata),
         
         .r_req_ready_out(dram_data_r_request_ready), // 
@@ -89,10 +89,10 @@ module DRAM_data #(
     input  wen, 
     input  ren, 
 
-    input  [$clog2(CAPACITY/8) - 1:0] waddr,
+    input  [$clog2(CAPACITY/(DATA_WIDTH/8)) - 1:0] waddr,
     input  [DATA_WIDTH - 1:0] wdata,
     input  [DATA_WIDTH / 8 - 1:0] wmask,
-    input  [$clog2(CAPACITY/8) - 1:0] raddr1,
+    input  [$clog2(CAPACITY/(DATA_WIDTH/8)) - 1:0] raddr1,
 
     output reg [DATA_WIDTH-1:0] rdata1,
     output reg r_req_ready_out,
@@ -224,3 +224,4 @@ module DRAM_inst #(
         rdata0 = mem[raddr0];
     end
 endmodule
+
