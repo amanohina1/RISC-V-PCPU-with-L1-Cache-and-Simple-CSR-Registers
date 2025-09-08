@@ -183,10 +183,10 @@ module Core #(
 
     // Next-state logic for all pipeline registers
     always_comb begin
-        if_id_next = '{32'h00000013,32'b0,1'b1};
-        id_ex_next  = '{valid : 1'b1,default: '0}; 
-        ex_mem_next = '{valid : 1'b1,default: '0};
-        mem_wb_next = '{valid : 1'b1,default: '0};
+        if_id_next = '{32'h00000013,32'b0,1'b0};
+        id_ex_next  = '{valid : 1'b0,default: '0}; 
+        ex_mem_next = '{valid : 1'b0,default: '0};
+        mem_wb_next = '{valid : 1'b0,default: '0};
 
         if_id_next.instruction = instruction_form_imem;
         if_id_next.PC = pc_out ;
@@ -609,3 +609,4 @@ module Core #(
         end
     endgenerate
 endmodule
+
