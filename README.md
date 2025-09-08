@@ -1,7 +1,7 @@
 # RISC-V-PCPU-with-L1-Cache-and-Simple-CSR-Registers
-# 五级流水线 RISC-V CPU 核设计
+# 五级流水线 RISC-V CPU 核设计 (PCPU—Core)
 
-A Simple 5-Stage Pipelined RISC-V CPU with L1 Cache and CSRs, implemented in SystemVerilog.
+A 5-Stage Pipelined RISC-V CPU with L1 Cache and CSR Registers and precise exception handling, implemented in SystemVerilog.
 
 ## 简介
 
@@ -28,7 +28,7 @@ A Simple 5-Stage Pipelined RISC-V CPU with L1 Cache and CSRs, implemented in Sys
     *   通过**数据前推 (Forwarding)** 解决大部分数据冒险。
     *   通过**停顿 (Stall)** 解决加载-使用（Load-Use）数据冒险。
     *   通过一直预测分支不跳转以及在译码阶段计算跳转地址来处理控制冒险。
-*   **CSR 支持**: 实现了基本的控制状态寄存器，用于处理器状态控制和信息记录。支持六个基本的CSR指令和Ebreak，Ecall指令，更多指令和性能监视器有待完善。
+*   **CSRs & 异常处理:** 实现了 `mcycle`, `minstret` 等标准性能计数器与自定义计数器。支持M/U模式切换，能够精确捕获并处理地址未对齐、非法指令等异常，支持Ecall和Ebreak指令。
 
 ## 项目结构
 
@@ -52,7 +52,7 @@ top (top.sv)
     ├── hazard: Hazard                 // 冒险检测单元
     ├── alu: ALU                       // 算术逻辑单元
     ├── BC: Branch_Comparision         // 分支比较单元
-    ├── dcache: DataCache (Cache.sv)   // 数据缓存
+    ├── dcache: DataCache (Cache.sv)   // 数据缓存，hit时单周期返回数据
     ├── sw_forward: sw_forward         // 数据前推逻辑
     ├── CSR_Regs: CSR_Regfiles         // CSR 寄存器堆
     ├── internal_regs_package          // 流水线寄存器数据类型结构体
@@ -60,7 +60,7 @@ top (top.sv)
     └── ... (其他多路选择器、加法器等)
     
 ```
-
+设计遵循“控制与数据通路分离”的原则，`Control`单元负责生成所有控制信号，`Hazard`单元负责检测所有的数据依赖和冒险，产生冲刷流水线或暂停流水线的信号，`Datapath`则包含了其余所有执行单元，L1缓存和流水线寄存器。
 ## 环境与工具链
 
 *   **硬件描述语言**: SystemVerilog
@@ -88,7 +88,7 @@ top (top.sv)
 
 ## 一个性能基准测试
 
-*   **测试程序:** **递归计算斐波那契数列第15项 (F(15))**。
+*   **测试程序:** **递归计算斐波那契数列第15项 (F(15))**。(或者第N项也可以)
 ```
 _start:
     li      sp, 4000
@@ -98,14 +98,18 @@ done:
     j       done
 
 main:
-    # Set the argument for the fibonacci function
-    li      a0, 15           # We want to calculate F(15)
+	# Prologue
 	addi    sp, sp, -4
     sw      ra, 4(sp)
-    # Call the fibonacci function
-    jal     ra, fib
+
+   
+	li      a0, 15           # We want to calculate F(15)
+    jal     ra, fib      	 # Call the fibonacci function
+
+	# Epilogue
 	lw      ra, 4(sp)
     addi    sp, sp, 4
+
     ret
 
 # The Fibonacci Function: fib(n)
@@ -189,15 +193,15 @@ CPU为了执行37,028条指令，付出了 `42,952 - 37,028 = 5,924` 个停顿�
 
 ### 最终结论
 
-本项目成功设计并实现了一个**高性能、高效率、功能完备的RISC-V处理器核心**。性能剖析数据显示，CPU的基础流水线效率已接近理论最优值（CPI=1），其主要的性能瓶颈为**控制冒险**。
+本项目成功设计并实现了一个**高性能、高效率、功能较完备的RISC-V处理器核心**。通过内置的硬件性能监视器进行的精确剖析数据显示，CPU的基础流水线效率已接近理论最优值（CPI ≈ 1.16），其主要的性能瓶颈是**控制冒险**。
 
-这次深入的、数据驱动的分析，不仅验证了CPU设计的正确性和应用LRU策略的二路组相联缓存的有效性，也为下一步的性能优化指明了清晰的方向：为了消除高达91.3%的停顿周期，下一步的核心工作是设计并实现一个动态分支预测器（例如，使用2位饱和计数器的分支历史表BHT），以避免因分支/跳转导致的流水线冲刷。
+这个数据驱动的分析，验证了我的CPU设计的正确性和应用LRU策略的二路组相联缓存的有效性，并为下一步的性能优化指明了清晰的方向：为了消除高达91.3%的停顿周期，我们要实现一个动态分支预测器，以避免因分支/跳转导致的流水线冲刷。
 
 ## 未来工作
-*   [ ] 实现自动化测试工作，运用Sppike，QEMU等工具进行进一步模拟。
-*   [ ] 实现更完整的 RISC-V 扩展指令集 (如 M, A类指令)。
+*   [ ] 优化分支预测逻辑。
+*   [ ] 添加 L1 指令缓存。
+*   [ ] 实现更完整的 RISC-V 扩展指令集 (如 M, A类指令)。     
+*   [ ] 实现自动化测试，运用Sppike，QEMU等工具进行进一步模拟。
 *   [ ] 实现完善的异常和中断处理机制。
-*   [ ] 优化分支预测逻辑 (例如，实现动态分支预测器)。
-*   [ ] 添加 L1 指令缓存 (I-Cache)。
 *   [ ] 移植到具体的 FPGA 开发板上进行原型验证。
 *   [ ] 实现指令重排和指令保留站，初步实现乱序执行核心。
