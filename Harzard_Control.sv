@@ -103,7 +103,7 @@ module Hazard #(
             stall_if_id = 1'b1;
             stall_id_ex = 1'b1;
             stall_ex_mem = 1'b1;
-            flush_mem_wb = 1'b1;
+            stall_mem_wb = 1'b1;
         end else if (is_luh) begin
             stall_if_id = 1'b1;
             stall_pc    = 1'b1;
@@ -172,5 +172,6 @@ module Hazard #(
             CSR_Sel = 1'b0; // WB has final value (default)
         end
     end
+
 
 endmodule
