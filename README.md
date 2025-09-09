@@ -22,7 +22,7 @@ A 5-Stage Pipelined RISC-V CPU with L1 Cache, CSRs and precise exception handlin
     *   **指令内存 (I-Mem)**: 只读，单周期响应，我目前用它来模拟一个巨大的指令缓存。后期将更新为指令缓存和指令内存的协同工作。
     *   **数据内存 (D-Mem)**: 基于 DRAM 模型实现，多周期延时读写，与处理器通过一个L1缓存交互。
 *   **L1 数据缓存 (D-Cache)**:
-    *   **2路组相联 (2-way Set-Associative)**: 提高了缓存命中率。
+    *   **参数化设计实现 2路组相联 (2-way Set-Associative)**: 提高了缓存命中率，并且仅需修改cache_ift.sv中的TIO参数和Cache.sv的缓存容量参数即可轻松更改缓存的组数。
     *   **LRU (Least Recently Used)** 替换策略: 实现了高效的缓存块替换算法。
 *   **冒险处理**:
     *   通过**数据前推 (Forwarding)** 解决大部分数据冒险。
