@@ -1,10 +1,10 @@
 package cache_pkg;
 
-    localparam ADDR_WIDTH     = 32;
+    localparam ADDR_WIDTH     = 8;
     localparam DATA_WIDTH_M   = 128; // datawidth of mem
     localparam DATA_WIDTH_CPU = 32;  // datawidth of CPU
 
-    localparam TAG_WIDTH      = 26;
+    localparam TAG_WIDTH      = 6;
     localparam INDEX_WIDTH    = 2;
     localparam OFFSET_WIDTH   = 4;
 

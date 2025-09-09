@@ -222,7 +222,7 @@ endgenerate
       WB_REQ: begin
         if (req_reg.valid) begin
             mem_w_req_valid = 1'b1;
-          mem_w_req.addr = {victim_line.tag[5:0], req_reg.index};
+            mem_w_req.addr = {victim_line.tag[5:0], req_reg.index};
             mem_w_req.data = victim_line.data;
             mem_w_req.wmask = '1;
         end
@@ -285,6 +285,5 @@ endgenerate
 
     endcase
   end
-
 
 endmodule

@@ -31,23 +31,22 @@ module MEM_Dram #(
         .rst(rst),        
         .wen(dmem_ift.w_request_valid),
         .ren(dmem_ift.r_request_valid),
-        .waddr({dmem_ift.w_request_bits.waddr}),
+        .waddr({dmem_ift.w_request_bits.waddr[7:0]}),
         .wdata(dmem_ift.w_request_bits.wdata),
-        .wmask({(128 / 8){1'b1}}),
+        .wmask('1),
 
-        .raddr1({dmem_ift.r_request_bits.raddr}),
+        .raddr1({dmem_ift.r_request_bits.raddr[7:0]}),
         .rdata1(dmem_ift.r_reply_bits.rdata),
         
-        .r_req_ready_out(dram_data_r_request_ready), // 
-        .r_rep_valid_out(dram_data_r_reply_valid),   // 
-        .w_req_ready_out(dram_data_w_request_ready), //
-        .w_rep_valid_out(dram_data_w_reply_valid)   // 
+        .r_req_ready_out(dram_data_r_request_ready), 
+        .r_rep_valid_out(dram_data_r_reply_valid),   
+        .w_req_ready_out(dram_data_w_request_ready), 
+        .w_rep_valid_out(dram_data_w_reply_valid)   
     );
 
     DRAM_inst #(
         .FILE_PATH(FILE_PATH),
         .DATA_WIDTH(32),
-
         .CAPACITY(2048)
     ) DRAM_inst (
         .clk(clk),
@@ -82,7 +81,8 @@ module DRAM_data #(
     parameter FILE_PATH = "",
     parameter ADDR_WIDTH = 32,
     parameter DATA_WIDTH = 128,
-    parameter CAPACITY = 4096
+    parameter CAPACITY = 4096,
+    parameter WORD_PER_BLOCK = 4
 ) (
     input  clk,
     input  rst,
@@ -224,4 +224,3 @@ module DRAM_inst #(
         rdata0 = mem[raddr0];
     end
 endmodule
-
