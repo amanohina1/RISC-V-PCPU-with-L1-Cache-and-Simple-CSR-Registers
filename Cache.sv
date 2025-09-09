@@ -4,7 +4,7 @@ import cache_pkg::*;
 // state machine : IDLE -> (WB_REQ -> WB_WAIT) -> ALLOC_REQ -> ALLOC_WAIT
 // may stay in WAIT states for multiple cycles if memory is not ready
 module DataCache #(
-  parameter CACHE_CAPACITY = 128, // Cache capacity in bytes
+  parameter CACHE_CAPACITY = 512, // Cache capacity in bytes
   parameter BLOCK_SIZE     = 16,   // Cache line size in bytes
   parameter DATA_WIDTH_CPU = 32
 ) (
@@ -222,7 +222,7 @@ endgenerate
       WB_REQ: begin
         if (req_reg.valid) begin
             mem_w_req_valid = victim_line.valid == 1'b1;
-            mem_w_req.addr = {victim_line.tag[5:0], req_reg.index};
+            mem_w_req.addr = {victim_line.tag[TAG_WIDTH - 1:0], req_reg.index};
             mem_w_req.data = victim_line.data;
             mem_w_req.wmask = '1;
         end
@@ -243,7 +243,7 @@ endgenerate
 
       ALLOC_REQ: begin
         mem_r_req_valid = 1'b1;
-        mem_r_req.addr = {req_reg.tag[5:0], req_reg.index};
+        mem_r_req.addr = {req_reg.tag[TAG_WIDTH - 1:0], req_reg.index};
         
         if (mem_r_req_ready) begin
             next_state = ALLOC_WAIT;

@@ -20,15 +20,7 @@ module Core #(
     Mem_ift.Master dmem_bus,
 
     output wire [DATA_WIDTH-1:0] debug_pc_out,
-    output wire [DATA_WIDTH-1:0] debug_instruction,
-    output wire debug_mem_write_enable,
-    output wire debug_reg_write_enable,
-    output wire [$clog2(DATA_WIDTH) - 1:0] debug_rd_addr_out,
-    output wire [DATA_WIDTH-1:0] debug_alu_result,
-    output wire [DATA_WIDTH-1:0] debug_data_to_write,
-    output reg [31:0] debug_all_regs [0:31],
-    output wire [3:0] wmask,
-    output wire [DATA_WIDTH-1:0] immediate
+    output wire [DATA_WIDTH-1:0] debug_instruction
 );
     wire [31:0] internal_reg_array [0:31];
     
@@ -113,9 +105,9 @@ module Core #(
     assign instruction_form_imem = imem_bus.r_reply_bits.rdata[31:0];
     
     assign pipeline_to_cache_req.valid  = (ex_mem_reg.Mem_Read || ex_mem_reg.Mem_Write ) && ex_mem_reg.valid;
-    assign pipeline_to_cache_req.offset = ex_mem_reg.alu_result[3:0];
-    assign pipeline_to_cache_req.index  = ex_mem_reg.alu_result[5:4];
-    assign pipeline_to_cache_req.tag    = ex_mem_reg.alu_result[31:6];
+    assign pipeline_to_cache_req.offset = ex_mem_reg.alu_result[OFFSET_WIDTH - 1:0];
+    assign pipeline_to_cache_req.index  = ex_mem_reg.alu_result[INDEX_WIDTH - 1 + OFFSET_WIDTH:OFFSET_WIDTH];
+    assign pipeline_to_cache_req.tag    = ex_mem_reg.alu_result[TAG_WIDTH + OFFSET_WIDTH + INDEX_WIDTH - 1:INDEX_WIDTH + OFFSET_WIDTH];
     assign pipeline_to_cache_req.wdata  = mem_data_to_write_final; // from DataPkg
     assign pipeline_to_cache_req.wmask  = mem_write_mask;
     assign pipeline_to_cache_req.write  = ex_mem_reg.Mem_Write == 1'b1;
@@ -132,7 +124,7 @@ module Core #(
     assign dmem_bus.w_request_valid = cache_to_mem_w_valid;
     assign dmem_bus.w_request_bits.waddr = cache_to_mem_w_req.addr; // waddr <- addr
     assign dmem_bus.w_request_bits.wdata = cache_to_mem_w_req.data; // wdata <- data
-    assign dmem_bus.w_request_bits.wmask = 'b1;
+    assign dmem_bus.w_request_bits.wmask = '1;
 
     assign dmem_bus.r_request_valid = cache_to_mem_r_valid;
     assign dmem_bus.r_request_bits.raddr = cache_to_mem_r_req.addr; 
@@ -183,7 +175,7 @@ module Core #(
 
     // Next-state logic for all pipeline registers
     always_comb begin
-        if_id_next = '{32'h00000013,32'b0,1'b0};
+        if_id_next = '{32'h00000013,32'b0,1'b1};
         id_ex_next  = '{valid : 1'b0,default: '0}; 
         ex_mem_next = '{valid : 1'b0,default: '0};
         mem_wb_next = '{valid : 1'b0,default: '0};
@@ -585,28 +577,16 @@ module Core #(
                  .csr_wdata(mem_wb_reg.csr_wdata),
                  .mstatus_out(mstatus_now),
                  .mret_out(mret_out),
-                 .mem_stall(mem_stall | is_luh));
+                 .mem_stall(mem_stall | is_luh),
+                 .is_b_or_j(PC_taken && !mem_wb_reg.is_mret_inst && exception_sel == 2'b00));
 
     // CSR forward to EX 
     MUX2to1 CSR_Forwarding(.A(csr_rdata_out),
                            .B(ex_mem_reg.csr_wdata),
                            .sel(CSR_Sel),
                            .out(csr_rdata_from_exe));
-    //debug outputs
+                           
+    //debug output
     assign debug_instruction = instruction_form_imem;
-    assign debug_mem_write_enable = dec_MWrite;
-    assign debug_alu_result = ex_alu_result_final;
-    assign debug_data_to_write = mem_data_to_write_final;
-    assign debug_reg_write_enable = dec_RegWrite;
-    assign debug_rd_addr_out = id_ex_reg.rd_addr;
-    assign wmask = mem_write_mask;
-    assign immediate = id_imm_ext;
     
-    genvar i;
-    generate
-        for (i = 0; i < 32; i = i + 1) begin : core_debug_assign
-            assign debug_all_regs[i] = internal_reg_array[i];
-        end
-    endgenerate
 endmodule
-

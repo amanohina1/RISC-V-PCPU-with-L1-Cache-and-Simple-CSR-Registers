@@ -4,8 +4,8 @@ package cache_pkg;
     localparam DATA_WIDTH_M   = 128; // datawidth of mem
     localparam DATA_WIDTH_CPU = 32;  // datawidth of CPU
 
-    localparam TAG_WIDTH      = 6;
-    localparam INDEX_WIDTH    = 2;
+    localparam TAG_WIDTH      = 4;
+    localparam INDEX_WIDTH    = 4;
     localparam OFFSET_WIDTH   = 4;
 
     typedef struct packed {
