@@ -58,7 +58,7 @@ module DataCache #(
 
   // State machine
   typedef enum logic [2:0] {
-    IDLE, WB_REQ, WB_MID, WB_WAIT, ALLOC_REQ, ALLOC_WAIT
+    IDLE, WB_REQ, WB_WAIT, ALLOC_REQ, ALLOC_WAIT
   } cache_state_t;
 
   cache_state_t current_state, next_state;
@@ -220,11 +220,8 @@ endgenerate
       end
 
       WB_REQ: begin
-        next_state = WB_MID;
-      end
-      WB_MID: begin
         if (req_reg.valid) begin
-            mem_w_req_valid = 1'b1;
+            mem_w_req_valid = victim_line.valid == 1'b1;
             mem_w_req.addr = {victim_line.tag[5:0], req_reg.index};
             mem_w_req.data = victim_line.data;
             mem_w_req.wmask = '1;
@@ -232,8 +229,12 @@ endgenerate
         
         if (mem_w_req_ready) begin
             next_state = WB_WAIT;
+        end 
+        if (victim_line.valid == 1'b0) begin 
+            next_state = ALLOC_REQ;
         end
       end
+   
       WB_WAIT: begin
         if (mem_w_resp_valid) begin
             next_state = ALLOC_REQ;
