@@ -41,7 +41,8 @@ module Control #(
         input  [DATA_WIDTH - 1:0] mstatus,
         input  exception,
         input  mret_out,
-
+        input  decode_en,
+        
         output reg RegWrite,
         output reg MW,
 
@@ -72,16 +73,21 @@ module Control #(
     );
     // A_Select : 0 for rs1 ,1 for PC
     // B_Select : 0 for rs2 ,1 for imme
+    reg [1:0] current_privilege_reg;
+    
     always_ff @(posedge clk) begin
         if (rst) begin
-            current_privilege <= M_MODE; // CPU starts in Machine mode (highest privilege)
-        end else if (exception) begin
-            current_privilege <= M_MODE; // Any exception forces entry into Machine mode
+            current_privilege_reg <= M_MODE; // CPU starts in Machine mode (highest privilege)
+        end else if (exception_valid) begin
+            current_privilege_reg <= M_MODE; // Any exception forces entry into Machine mode
         end else if (mret_out) begin // when an MRET instruction is committed
             // Return to the previously recorded privilege
-            current_privilege <= mstatus[12:11]; // Read MPP bits
+            current_privilege_reg <= mstatus[12:11]; // Read MPP bits
         end
     end
+    
+    assign current_privilege = current_privilege_reg;
+    
     always @(*) begin
 
         jump = 1'b0;
@@ -106,7 +112,8 @@ module Control #(
         csr_op = 3'bxxx;
         exception_cause = 32'd0;
         is_ecall_inst = 1'b0;
-        valid = 1'b1;
+        if (decode_en) begin
+          valid = 1'b1;
 
         case (opcode)
             R:begin
@@ -293,5 +300,6 @@ module Control #(
                 exception_cause = 32'd2;
             end
         endcase
+    end else valid = 1'b0;
     end
 endmodule

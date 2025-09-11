@@ -259,15 +259,16 @@ module Core #(
         mem_wb_next.csr_addr = ex_mem_reg.csr_addr;
         mem_wb_next.csr_wdata = ex_mem_reg.csr_wdata;
         mem_wb_next.csr_rdata = ex_mem_reg.csr_rdata;
+        
         if (!mem_aligned && ex_mem_reg.Mem_Read) begin
             mem_wb_next.exception_valid = 1'b1;
             mem_wb_next.is_ecall_inst = 1'b1;
-            mem_wb_next.exception_cause = 32'h00000004; // Example cause
+            mem_wb_next.exception_cause = 32'h00000004; 
         end
         if (!mem_aligned && ex_mem_reg.Mem_Write) begin
             mem_wb_next.exception_valid = 1'b1;
             mem_wb_next.is_ecall_inst = 1'b1;
-            mem_wb_next.exception_cause = 32'h00000006; // Example cause
+            mem_wb_next.exception_cause = 32'h00000006; 
         end
     end
 
@@ -387,7 +388,8 @@ module Core #(
                     .rst(rst_ctrl),
                     .is_ecall_inst(is_ecall_inst),
                     .csr_addr(if_id_reg.instruction[31:20]),
-                    .valid(is_valid));
+                    .valid(is_valid),
+                    .decode_en(if_id_reg.valid));
 
     // Immediate generation
     Imme_Gen gene(.instruction(if_id_reg.instruction),
