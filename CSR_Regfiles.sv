@@ -21,7 +21,7 @@ module CSR_Regs #(
     input  logic [DATA_WIDTH - 1:0] exception_cause,
     input  logic inst_commit,
     input  logic mem_stall,
-
+    input  logic is_b_or_j,
     output logic [DATA_WIDTH - 1:0] handler_addr, // Exception handler entry address (mtvec)
     output logic [DATA_WIDTH - 1:0] mstatus_out,
     output logic [DATA_WIDTH - 1:0] mret_out
@@ -32,14 +32,26 @@ module CSR_Regs #(
     reg [DATA_WIDTH - 1:0] mcause;  // 0x342
     reg [DATA_WIDTH - 1:0] mstatus; // 0x300
     reg [DATA_WIDTH - 1:0] mtval;   // 0x343
-    reg [DATA_WIDTH - 1:0] new_mstatus;
+    
     reg [63:0] mcycle;  // 0xB00
     reg [63:0] minstret; // 0xB02
     reg [DATA_WIDTH - 1:0] misa;    // 0x301
+    
     reg [DATA_WIDTH - 1:0] mie;     // 0x304
     reg [DATA_WIDTH - 1:0] mip;     // 0x344 (Partially writable)
+    
     reg [DATA_WIDTH - 1:0] mscratch;// 0x340
     reg [DATA_WIDTH - 1:0] stall_count;
+    reg [DATA_WIDTH - 1:0] branch_jump_count;
+    
+    logic [DATA_WIDTH - 1:0] mstatus_next;
+    logic [DATA_WIDTH - 1:0] mtvec_next;
+    logic [DATA_WIDTH - 1:0] mepc_next;
+    logic [DATA_WIDTH - 1:0] mcause_next;
+    logic [DATA_WIDTH - 1:0] mtval_next;
+    logic [DATA_WIDTH - 1:0] mie_next;
+    logic [DATA_WIDTH - 1:0] mip_next;
+    logic [DATA_WIDTH - 1:0] mscratch_next;
 
     logic [DATA_WIDTH-1:0] mstatus_mask = 32'h00001888;
 
@@ -67,6 +79,7 @@ module CSR_Regs #(
     localparam MINSTRETH = 12'hB82;
     
     localparam MEM_STALL = 12'hB83;
+    localparam BRAN_JMP  = 12'HB84;
     always_comb begin
         logic [DATA_WIDTH - 1:0] rdata_from_regs;
         mstatus_out = mstatus;
@@ -95,7 +108,8 @@ module CSR_Regs #(
 
             CYCLE:     rdata_from_regs = mcycle[31:0];
             INSTRET:   rdata_from_regs = minstret[31:0]; 
-            MEM_STALL: rdata_from_regs = stall_count[31:0]; 
+            MEM_STALL: rdata_from_regs = stall_count[31:0];
+            BRAN_JMP : rdata_from_regs = branch_jump_count[31:0];
             default:   rdata_from_regs = {DATA_WIDTH{1'b0}};
         endcase
 
@@ -103,12 +117,50 @@ module CSR_Regs #(
             csr_rdata = csr_wdata;
         else
             csr_rdata = rdata_from_regs;
+            
+        mstatus_next  = mstatus;
+        mtvec_next    = mtvec;
+        mepc_next     = mepc;
+        mcause_next   = mcause;
+        mtval_next    = mtval;
+        mie_next      = mie;
+        mip_next      = mip;
+        mscratch_next = mscratch;
+
+        if (csr_wen && priv_level >= csr_waddr[9:8]) begin
+            case (csr_waddr)
+                MSTATUS: mstatus_next   = (csr_wdata & mstatus_mask) | (mstatus & ~mstatus_mask);
+                MTVEC:   mtvec_next     = csr_wdata;
+                MEPC:    mepc_next      = csr_wdata;
+                MCAUSE:  mcause_next    = csr_wdata;
+                MTVAL:   mtval_next     = csr_wdata;
+                MIE:     mie_next       = csr_wdata;
+                MIP:     mip_next[3]    = csr_wdata[3]; 
+                MSCRATCH:mscratch_next  = csr_wdata;
+            endcase
+        end
+
+        if (mret_commit) begin
+            mstatus_next        = mstatus;
+            mstatus_next[3]     = mstatus[7];   // MIE <- MPIE
+            mstatus_next[7]     = 1'b1;         // MPIE <- 1
+            mstatus_next[12:11] = 2'b00;      // MPP <- U-Mode
+        end
+        
+        if (exception_commit) begin
+            mepc_next   = exception_pc;
+            mcause_next = exception_cause;
+            mtval_next  = exception_tval;
+
+            mstatus_next        = mstatus;
+            mstatus_next[12:11] = priv_level;  
+            mstatus_next[7]     = mstatus[3];    
+            mstatus_next[3]     = 1'b0;        
+        end
     end
 
     assign handler_addr = mtvec;
     assign mret_out     = mepc;
-
-    // inst_commit: increment minstret when an instruction is committed (connected from Datapath)
 
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -124,55 +176,25 @@ module CSR_Regs #(
             mscratch<= '0;
             misa    <= 32'h40000104; // RV32IM
             stall_count <= '0;
+            branch_jump_count <= '0;
         end else begin
-            // always count cycles
             mcycle <= mcycle + 1;
+            
             if (mem_stall)
                 stall_count <= stall_count + 1;
-            // increment retired-instruction counter when datapath signals a commit
             if (inst_commit)
                 minstret <= minstret + 1;
-
-            if (exception_commit) begin
-                mepc   <= exception_pc;
-                mcause <= exception_cause;
-                mtval  <= exception_tval;
-
-                // update mstatus on exception entry
-                new_mstatus <= mstatus;
-                new_mstatus[12:11] <= priv_level; // set MPP
-                new_mstatus[7]      <= mstatus[3]; // MPIE <- MIE
-                new_mstatus[3]      <= 1'b0;       // MIE <- 0
-                mstatus <= new_mstatus;
-
-            end else if (mret_commit) begin
-                new_mstatus        <= mstatus;
-                new_mstatus[3]     <= mstatus[7];
-                new_mstatus[7]     <= 1'b1;
-                new_mstatus[12:11] <= 2'b00;
-
-                mstatus <= new_mstatus;
-
-            end
-
-            // CSR write (write takes precedence over auto-increment)
-            if (csr_wen && priv_level >= csr_waddr[9:8]) begin
-                case (csr_waddr)
-                    MSTATUS: mstatus   <= (csr_wdata & mstatus_mask) | (mstatus & ~mstatus_mask);
-                    MTVEC:   mtvec     <= csr_wdata;
-                    MEPC:    mepc      <= csr_wdata;
-                    MCAUSE:  mcause    <= csr_wdata;
-                    MTVAL:   mtval     <= csr_wdata;
-                    MCYCLE:  mcycle    <= csr_wdata;
-                    MINSTRET: minstret <= csr_wdata;
-                    MISA:     ; 
-                    MIE:      mie       <= csr_wdata;
-                    MSCRATCH: mscratch  <= csr_wdata;
-                    MIP:      mip[3]    <= csr_wdata[3];
-                    MEM_STALL: stall_count <= csr_wdata;
-                    default: ; // do nothing for read-only or unsupported CSRs
-                endcase
-            end
+            if (is_b_or_j)
+                branch_jump_count <= branch_jump_count + 1;
+            
+            mstatus <= mstatus_next;
+            mtvec   <= mtvec_next;
+            mepc    <= mepc_next;
+            mcause  <= mcause_next;
+            mtval   <= mtval_next;
+            mie     <= mie_next;
+            mip     <= mip_next;
+            mscratch<= mscratch_next;
         end
     end
 
